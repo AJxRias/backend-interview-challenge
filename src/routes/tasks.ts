@@ -13,8 +13,12 @@ export function createTaskRouter(db: Database): Router {
     try {
       const tasks = await taskService.getAllTasks();
       res.json(tasks);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch tasks' });
+    } catch (error: any) {
+      res.status(500).json({
+        error: error.message || 'Failed to fetch tasks',
+        timestamp: new Date(),
+        path: req.originalUrl,
+      });
     }
   });
 
@@ -23,40 +27,106 @@ export function createTaskRouter(db: Database): Router {
     try {
       const task = await taskService.getTask(req.params.id);
       if (!task) {
-        return res.status(404).json({ error: 'Task not found' });
+        return res.status(404).json({
+          error: 'Task not found',
+          timestamp: new Date(),
+          path: req.originalUrl,
+        });
       }
-      res.json(task);
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch task' });
+      return res.json(task);
+    } catch (error: any) {
+      return res.status(500).json({
+        error: error.message || 'Failed to fetch task',
+        timestamp: new Date(),
+        path: req.originalUrl,
+      });
     }
   });
 
   // Create task
   router.post('/', async (req: Request, res: Response) => {
-    // TODO: Implement task creation endpoint
-    // 1. Validate request body
-    // 2. Call taskService.createTask()
-    // 3. Return created task
-    res.status(501).json({ error: 'Not implemented' });
+    try {
+      const { title, description } = req.body;
+      if (!title) {
+        return res.status(400).json({
+          error: 'Title is required',
+          timestamp: new Date(),
+          path: req.originalUrl,
+        });
+      }
+
+      const task = await taskService.createTask({
+        title,
+        description: description || '',
+        completed: false,
+        updated_at: new Date(),
+      });
+
+      // Add to sync queue
+      await syncService.addToSyncQueue(task.id, 'create', task);
+
+      return res.status(201).json(task);
+    } catch (error: any) {
+      return res.status(500).json({
+        error: error.message || 'Failed to create task',
+        timestamp: new Date(),
+        path: req.originalUrl,
+      });
+    }
   });
 
   // Update task
   router.put('/:id', async (req: Request, res: Response) => {
-    // TODO: Implement task update endpoint
-    // 1. Validate request body
-    // 2. Call taskService.updateTask()
-    // 3. Handle not found case
-    // 4. Return updated task
-    res.status(501).json({ error: 'Not implemented' });
+    try {
+      const existing = await taskService.getTask(req.params.id);
+      if (!existing) {
+        return res.status(404).json({
+          error: 'Task not found',
+          timestamp: new Date(),
+          path: req.originalUrl,
+        });
+      }
+
+      const updated = await taskService.updateTask(req.params.id, {
+        ...req.body,
+        updated_at: new Date().toISOString(),
+      });
+
+      // Add to sync queue
+      await syncService.addToSyncQueue(req.params.id, 'update', updated!);
+      return res.json(updated);
+    } catch (error: any) {
+      return res.status(500).json({
+        error: error.message || 'Failed to update task',
+        timestamp: new Date(),
+        path: req.originalUrl,
+      });
+    }
   });
 
   // Delete task
   router.delete('/:id', async (req: Request, res: Response) => {
-    // TODO: Implement task deletion endpoint
-    // 1. Call taskService.deleteTask()
-    // 2. Handle not found case
-    // 3. Return success response
-    res.status(501).json({ error: 'Not implemented' });
+    try {
+      const deleted = await taskService.deleteTask(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({
+          error: 'Task not found',
+          timestamp: new Date(),
+          path: req.originalUrl,
+        });
+      }
+
+      // Add to sync queue
+      await syncService.addToSyncQueue(req.params.id, 'delete', {});
+
+      return res.json({ success: true, timestamp: new Date() });
+    } catch (error: any) {
+      return res.status(500).json({
+        error: error.message || 'Failed to delete task',
+        timestamp: new Date(),
+        path: req.originalUrl,
+      });
+    }
   });
 
   return router;

@@ -8,8 +8,8 @@ export function errorHandler(
   err: AppError,
   req: Request,
   res: Response,
-  next: NextFunction
-): void {
+  _next: NextFunction
+ ): void {
   console.error('Error:', err);
 
   const statusCode = err.statusCode || 500;

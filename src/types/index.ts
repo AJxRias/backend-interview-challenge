@@ -43,6 +43,7 @@ export interface ConflictResolution {
 export interface BatchSyncRequest {
   items: SyncQueueItem[];
   client_timestamp: Date;
+  checksum?: string;
 }
 
 export interface BatchSyncResponse {
@@ -50,6 +51,7 @@ export interface BatchSyncResponse {
     client_id: string;
     server_id: string;
     status: 'success' | 'conflict' | 'error';
+    operation: 'create' | 'update' | 'delete';
     resolved_data?: Task;
     error?: string;
   }[];
